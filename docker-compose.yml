@@ -75,6 +75,7 @@ services:
       PORT: 3000
       DATABASE_URL: file:/data/registry-aio.db
       AUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost:3080}
+      REGISTRY_PUBLIC_URL: ${REGISTRY_PUBLIC_URL:-localhost:5050}
       REGISTRY_AUTH_SERVICE: ${REGISTRY_AUTH_SERVICE:-registry}
       REGISTRY_AUTH_ISSUER: ${REGISTRY_AUTH_ISSUER:-registry-aio}
       REGISTRY_INTERNAL_URL: ${REGISTRY_INTERNAL_URL:-http://registry:5000}

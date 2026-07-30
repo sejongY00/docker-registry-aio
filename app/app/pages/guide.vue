@@ -28,11 +28,11 @@ docker compose up -d --build</code></pre>
           <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
             <div class="rounded-lg border p-3">
               <div class="text-muted-foreground">UI / Auth</div>
-              <code class="mt-1 block font-mono">localhost:3080</code>
+              <code class="mt-1 block break-all font-mono">{{ authPublicHost }}</code>
             </div>
             <div class="rounded-lg border p-3">
               <div class="text-muted-foreground">Registry</div>
-              <code class="mt-1 block font-mono">localhost:5050</code>
+              <code class="mt-1 block break-all font-mono">{{ registryHost }}</code>
             </div>
           </div>
         </CardContent>
@@ -47,8 +47,8 @@ docker compose up -d --build</code></pre>
           <CardDescription>UI에서 생성한 계정으로 로그인합니다.</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
-          <pre class="overflow-x-auto rounded-lg border bg-muted/40 p-4 font-mono text-sm leading-7"><code>docker login localhost:5050
-docker pull localhost:5050/demo/alpine:latest</code></pre>
+          <pre class="overflow-x-auto rounded-lg border bg-muted/40 p-4 font-mono text-sm leading-7"><code>docker login {{ registryHost }}
+docker pull {{ registryHost }}/demo/alpine:latest</code></pre>
           <p class="text-sm text-muted-foreground">
             Registry가 Nuxt의 <code class="font-mono">/auth/token</code>에서 JWT를 발급받아 요청 권한을 검증합니다.
           </p>
@@ -65,16 +65,17 @@ docker pull localhost:5050/demo/alpine:latest</code></pre>
         </CardHeader>
         <CardContent class="space-y-4">
           <div class="space-y-2 text-sm">
-            <div class="flex items-center justify-between rounded-lg border p-3">
-              <code class="font-mono">registry.example.com</code>
-              <Badge variant="outline">:5050</Badge>
+            <div class="flex items-center justify-between gap-3 rounded-lg border p-3">
+              <code class="break-all font-mono">{{ registryHost }}</code>
+              <Badge variant="outline">:{{ registryPort }}</Badge>
             </div>
-            <div class="flex items-center justify-between rounded-lg border p-3">
-              <code class="font-mono">registry-ui.example.com</code>
-              <Badge variant="outline">:3080</Badge>
+            <div class="flex items-center justify-between gap-3 rounded-lg border p-3">
+              <code class="break-all font-mono">{{ authPublicHost }}</code>
+              <Badge variant="outline">:{{ appPort }}</Badge>
             </div>
           </div>
-          <pre class="overflow-x-auto rounded-lg border bg-muted/40 p-4 font-mono text-sm"><code>AUTH_PUBLIC_URL=https://registry-ui.example.com</code></pre>
+          <pre class="overflow-x-auto rounded-lg border bg-muted/40 p-4 font-mono text-sm leading-7"><code>AUTH_PUBLIC_URL={{ authPublicUrl }}
+REGISTRY_PUBLIC_URL={{ registryHost }}</code></pre>
         </CardContent>
       </Card>
 
@@ -105,6 +106,26 @@ docker pull localhost:5050/demo/alpine:latest</code></pre>
 import { Info } from '@lucide/vue'
 
 useHead({ title: '가이드' })
+
+const config = useRuntimeConfig()
+
+function stripUrl(value: string) {
+  return value.replace(/^https?:\/\//i, '').replace(/\/+$/, '')
+}
+
+const authPublicUrl = computed(() => String(config.public.authPublicUrl || 'http://localhost:3080'))
+const authPublicHost = computed(() => stripUrl(authPublicUrl.value) || 'localhost:3080')
+const registryHost = computed(() => {
+  const raw = String(config.public.registryPublicUrl || '').trim()
+  if (raw) return stripUrl(raw)
+  return `localhost:${config.public.registryPort || '5050'}`
+})
+const registryPort = computed(() => String(config.public.registryPort || '5050'))
+const appPort = computed(() => {
+  const host = authPublicHost.value
+  const match = host.match(/:(\d+)$/)
+  return match?.[1] || '3080'
+})
 
 const aclPatterns = [
   { pattern: 'demo/app', description: '정확한 저장소' },

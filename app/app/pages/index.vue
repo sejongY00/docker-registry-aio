@@ -63,9 +63,11 @@ const { data: stats } = await useFetch<{
   repositories: number
 }>('/api/stats')
 
+/** docker login / push에 쓰는 호스트 (스킴·끝 슬래시 제거) */
 const registryHost = computed(() => {
-  if (import.meta.client) {
-    return `${window.location.hostname}:${config.public.registryPort || '5050'}`
+  const raw = String(config.public.registryPublicUrl || '').trim()
+  if (raw) {
+    return raw.replace(/^https?:\/\//i, '').replace(/\/+$/, '')
   }
   return `localhost:${config.public.registryPort || '5050'}`
 })

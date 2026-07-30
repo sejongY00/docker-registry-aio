@@ -17,7 +17,8 @@ export default defineNuxtConfig({
     tokenKeyPath: process.env.TOKEN_KEY_PATH || '',
     tokenCertPath: process.env.TOKEN_CERT_PATH || '',
     public: {
-      authPublicUrl: process.env.AUTH_PUBLIC_URL || 'http://localhost:3000',
+      authPublicUrl: process.env.AUTH_PUBLIC_URL || 'http://localhost:3080',
+      registryPublicUrl: process.env.REGISTRY_PUBLIC_URL || 'localhost:5050',
       registryPort: process.env.REGISTRY_PORT || '5050',
     },
   },

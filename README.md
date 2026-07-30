@@ -34,13 +34,16 @@ docker push localhost:5050/demo/alpine:latest
 
 ## 중요한 환경 변수
 
-- `AUTH_PUBLIC_URL` — **docker 클라이언트가 실제로 호출하는** Nuxt 공개 URL  
+- `AUTH_PUBLIC_URL` — **docker 클라이언트가 실제로 호출하는** Nuxt(관리 UI) 공개 URL  
   - 로컬: `http://localhost:3080`  
-  - 프록시 뒤: `https://registry-ui.example.com`  
+  - 프록시 뒤: `https://docker-ui.sejong.dev`  
   - Registry `auth.token.realm` = `${AUTH_PUBLIC_URL}/auth/token`
+- `REGISTRY_PUBLIC_URL` — **docker login / push / pull에 쓰는** Registry 공개 주소 (UI 빠른 시작에도 표시)  
+  - 로컬: `localhost:5050`  
+  - 프록시 뒤: `docker.sejong.dev` (`https://`를 넣어도 CLI용으로 스킴은 제거됨)
 - `REGISTRY_PORT` / `APP_PORT` — 호스트 포트 (기본 `5050` / `3080`)
 - `REGISTRY_AUTH_SERVICE` / `REGISTRY_AUTH_ISSUER` — Registry와 Auth JWT 설정 (기본 `registry` / `registry-aio`)
-  - 주의: registry 컨테이너에는 `REGISTRY_*` 환경변수를 직접 넣지 않습니다(공식 이미지가 설정 오버라이드로 해석함).
+  - 주의: registry 컨테이너에는 `REGISTRY_*` 환경변수를 직접 넣지 않습니다(공식 이미지가 설정 오버라이드로 해석함). `REGISTRY_PUBLIC_URL`은 app에만 전달됩니다.
 - `SESSION_SECRET` — 관리 UI 세션 서명 키 (운영에서 반드시 변경)
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — 최초 admin 시드
 
@@ -54,12 +57,13 @@ docker compose up -d --force-recreate registry
 
 이 프로젝트는 TLS를 내장하지 않습니다. 이미 운영 중인 프록시에 연결하세요.
 
-1. `registry.example.com` → 호스트 `:5050`
-2. `registry-ui.example.com` → 호스트 `:3080` (UI + `/auth/token` + `/api`)
+1. `docker.sejong.dev` → 호스트 `:5050` (Registry)
+2. `docker-ui.sejong.dev` → 호스트 `:3080` (UI + `/auth/token` + `/api`)
 3. `.env`에 다음을 설정 후 Compose 재기동:
 
 ```env
-AUTH_PUBLIC_URL=https://registry-ui.example.com
+AUTH_PUBLIC_URL=https://docker-ui.sejong.dev
+REGISTRY_PUBLIC_URL=docker.sejong.dev
 ```
 
 프록시에서 Registry로 큰 이미지 업로드 시 body size 제한을 충분히 올리세요 (예: NPM의 client max body size).
