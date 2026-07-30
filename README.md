@@ -4,6 +4,7 @@
 
 - htpasswd 대신 DB(Prisma 7 / SQLite)에서 사용자를 관리하며, 같은 계정이 `docker login`에도 사용됩니다.
 - 관리 UI는 [shadcn-vue](https://www.shadcn-vue.com/) + Tailwind CSS 4 기반이며 라이트/다크 테마를 지원합니다.
+- 라이선스: [MIT](LICENSE)
 
 ## 구성
 
