@@ -80,6 +80,12 @@ services:
       REGISTRY_AUTH_ISSUER: ${REGISTRY_AUTH_ISSUER:-registry-aio}
       REGISTRY_INTERNAL_URL: ${REGISTRY_INTERNAL_URL:-http://registry:5000}
       REGISTRY_PORT: ${REGISTRY_PORT:-5050}
+      # runtimeConfig 기본값은 빌드 시 고정되므로, 런타임 반영은 NUXT_ 접두사가 필요
+      NUXT_PUBLIC_AUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost:3080}
+      NUXT_PUBLIC_REGISTRY_PUBLIC_URL: ${REGISTRY_PUBLIC_URL:-localhost:5050}
+      NUXT_PUBLIC_REGISTRY_PORT: ${REGISTRY_PORT:-5050}
+      NUXT_REGISTRY_INTERNAL_URL: ${REGISTRY_INTERNAL_URL:-http://registry:5000}
+      NUXT_SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
       SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
