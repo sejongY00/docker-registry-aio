@@ -1,0 +1,99 @@
+services:
+  certs:
+    image: alpine:3.21
+    restart: "no"
+    volumes:
+      - ./certs:/certs
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        apk add --no-cache openssl >/dev/null
+        if [ -f /certs/token.key ] && [ -f /certs/token.crt ]; then
+          echo "Token certs already exist, skipping."
+          exit 0
+        fi
+        openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 \
+          -subj "/CN=registry-aio-token" \
+          -keyout /certs/token.key \
+          -out /certs/token.crt
+        chmod 600 /certs/token.key
+        echo "Generated /certs/token.key and /certs/token.crt"
+
+  registry:
+    image: registry:3
+    restart: unless-stopped
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    ports:
+      - "${REGISTRY_PORT:-5050}:5000"
+    environment:
+      AUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost:3080}
+      TOKEN_SERVICE: ${REGISTRY_AUTH_SERVICE:-registry}
+      TOKEN_ISSUER: ${REGISTRY_AUTH_ISSUER:-registry-aio}
+    volumes:
+      - registry-data:/var/lib/registry
+      - ./certs:/certs:ro
+      - ./config/registry/config.yml.template:/config/config.yml.template:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        : "$${AUTH_PUBLIC_URL:?AUTH_PUBLIC_URL is required}"
+        TOKEN_SERVICE="$${TOKEN_SERVICE:-registry}"
+        TOKEN_ISSUER="$${TOKEN_ISSUER:-registry-aio}"
+        mkdir -p /etc/docker/registry
+        sed \
+          -e "s|__AUTH_PUBLIC_URL__|$${AUTH_PUBLIC_URL}|g" \
+          -e "s|__REGISTRY_AUTH_SERVICE__|$${TOKEN_SERVICE}|g" \
+          -e "s|__REGISTRY_AUTH_ISSUER__|$${TOKEN_ISSUER}|g" \
+          /config/config.yml.template > /etc/docker/registry/config.yml
+        echo "Rendered registry config:"
+        cat /etc/docker/registry/config.yml
+        exec registry serve /etc/docker/registry/config.yml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5000/v2/ || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    ports:
+      - "${APP_PORT:-3080}:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: file:/data/registry-aio.db
+      AUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost:3080}
+      REGISTRY_AUTH_SERVICE: ${REGISTRY_AUTH_SERVICE:-registry}
+      REGISTRY_AUTH_ISSUER: ${REGISTRY_AUTH_ISSUER:-registry-aio}
+      REGISTRY_INTERNAL_URL: ${REGISTRY_INTERNAL_URL:-http://registry:5000}
+      REGISTRY_PORT: ${REGISTRY_PORT:-5050}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
+      TOKEN_KEY_PATH: /certs/token.key
+      TOKEN_CERT_PATH: /certs/token.crt
+    volumes:
+      - app-data:/data
+      - ./certs:/certs:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  registry-data:
+  app-data:

@@ -1,0 +1,115 @@
+<template>
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">가이드</h1>
+      <p class="mt-1 text-muted-foreground">로컬 기동부터 프록시 연동까지 순서대로 안내합니다.</p>
+    </div>
+
+    <Alert>
+      <Info class="size-4" />
+      <AlertTitle>Token Auth 사용</AlertTitle>
+      <AlertDescription>
+        사용자 정보는 Prisma DB에서 관리하며, UI 계정과 <code class="font-mono">docker login</code> 계정이 같습니다.
+      </AlertDescription>
+    </Alert>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle class="flex items-center gap-2 text-base">
+            <span class="flex size-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">1</span>
+            서비스 기동
+          </CardTitle>
+          <CardDescription>프로젝트 루트에서 실행합니다.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <pre class="overflow-x-auto rounded-lg border bg-muted/40 p-4 font-mono text-sm leading-7"><code>cp .env.example .env
+docker compose up -d --build</code></pre>
+          <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div class="rounded-lg border p-3">
+              <div class="text-muted-foreground">UI / Auth</div>
+              <code class="mt-1 block font-mono">localhost:3080</code>
+            </div>
+            <div class="rounded-lg border p-3">
+              <div class="text-muted-foreground">Registry</div>
+              <code class="mt-1 block font-mono">localhost:5050</code>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle class="flex items-center gap-2 text-base">
+            <span class="flex size-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">2</span>
+            Docker 로그인
+          </CardTitle>
+          <CardDescription>UI에서 생성한 계정으로 로그인합니다.</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <pre class="overflow-x-auto rounded-lg border bg-muted/40 p-4 font-mono text-sm leading-7"><code>docker login localhost:5050
+docker pull localhost:5050/demo/alpine:latest</code></pre>
+          <p class="text-sm text-muted-foreground">
+            Registry가 Nuxt의 <code class="font-mono">/auth/token</code>에서 JWT를 발급받아 요청 권한을 검증합니다.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle class="flex items-center gap-2 text-base">
+            <span class="flex size-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">3</span>
+            NPM / Traefik
+          </CardTitle>
+          <CardDescription>TLS는 기존 리버스 프록시에서 종료합니다.</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <div class="space-y-2 text-sm">
+            <div class="flex items-center justify-between rounded-lg border p-3">
+              <code class="font-mono">registry.example.com</code>
+              <Badge variant="outline">:5050</Badge>
+            </div>
+            <div class="flex items-center justify-between rounded-lg border p-3">
+              <code class="font-mono">registry-ui.example.com</code>
+              <Badge variant="outline">:3080</Badge>
+            </div>
+          </div>
+          <pre class="overflow-x-auto rounded-lg border bg-muted/40 p-4 font-mono text-sm"><code>AUTH_PUBLIC_URL=https://registry-ui.example.com</code></pre>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle class="flex items-center gap-2 text-base">
+            <span class="flex size-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">4</span>
+            ACL 패턴
+          </CardTitle>
+          <CardDescription>사용자별 저장소 접근 범위를 설정합니다.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableBody>
+              <TableRow v-for="item in aclPatterns" :key="item.pattern">
+                <TableCell class="font-mono">{{ item.pattern }}</TableCell>
+                <TableCell class="text-muted-foreground">{{ item.description }}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { Info } from '@lucide/vue'
+
+useHead({ title: '가이드' })
+
+const aclPatterns = [
+  { pattern: 'demo/app', description: '정확한 저장소' },
+  { pattern: 'demo/*', description: 'demo 아래 한 단계' },
+  { pattern: 'team/**', description: 'team 아래 전체' },
+  { pattern: '*', description: '모든 저장소' },
+]
+</script>

@@ -1,0 +1,29 @@
+version: 0.1
+log:
+  fields:
+    service: registry
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+http:
+  addr: :5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+    Access-Control-Allow-Origin: ['*']
+    Access-Control-Allow-Methods: [HEAD, GET, OPTIONS, DELETE, POST, PUT, PATCH]
+    Access-Control-Allow-Headers: [Authorization, Accept, Cache-Control]
+    Access-Control-Expose-Headers: [Docker-Content-Digest]
+    Access-Control-Allow-Credentials: [true]
+auth:
+  token:
+    realm: __AUTH_PUBLIC_URL__/auth/token
+    service: __REGISTRY_AUTH_SERVICE__
+    issuer: __REGISTRY_AUTH_ISSUER__
+    rootcertbundle: /certs/token.crt
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
