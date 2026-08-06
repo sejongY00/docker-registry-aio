@@ -86,6 +86,29 @@ export function authorizeScopes(user: UserWithAcls, scopes: ParsedScope[]): Regi
   return access
 }
 
+/** Anonymous clients may only receive pull access explicitly granted to everyone. */
+export function authorizeAnonymousScopes(
+  everyone: UserWithAcls,
+  scopes: ParsedScope[],
+): RegistryAccess[] {
+  if (!everyone.active) return []
+
+  const access: RegistryAccess[] = []
+  for (const scope of scopes) {
+    if (scope.type !== 'repository' || !scope.actions.includes('pull')) continue
+
+    const allowed = allowedActionsForRepo(everyone, scope.name)
+    if (!allowed.includes('pull') && !allowed.includes('*')) continue
+
+    access.push({
+      type: 'repository',
+      name: scope.name,
+      actions: ['pull'],
+    })
+  }
+  return access
+}
+
 export function parseBasicAuth(header: string | undefined): { username: string; password: string } | null {
   if (!header?.startsWith('Basic ')) return null
   try {

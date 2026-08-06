@@ -76,6 +76,19 @@ UI **사용자** 메뉴에서 계정을 만들고 ACL을 지정합니다.
 |------|------|
 | `ADMIN` | 전체 pull/push/delete, 사용자 관리 |
 | `USER` | 할당된 ACL만 |
+| `everyone` | 예약된 PUBLIC 시스템 사용자. 할당된 ACL을 계정 없이 pull |
+
+### 계정 없는 공개 pull
+
+앱이 처음 시작될 때 `everyone` 시스템 사용자가 자동 생성됩니다. UI의 **사용자 → everyone 편집**에서 공개할 저장소 패턴을 추가하세요.
+
+예를 들어 `demo/*`를 추가하면 로그인하지 않고 다음 명령을 실행할 수 있습니다.
+
+```bash
+docker pull docker.sejong.dev/demo/alpine:latest
+```
+
+`everyone`은 로그인·삭제·역할 변경이 불가능하며, ACL에는 pull만 적용됩니다. 익명 push/delete는 설정값과 관계없이 차단됩니다. 민감한 이미지를 `*` 패턴으로 공개하지 않도록 주의하세요.
 
 ACL 패턴 예:
 
@@ -106,9 +119,9 @@ npm run dev
 
 ## 인증 흐름
 
-1. `docker login` / push / pull → Registry가 `401` + `WWW-Authenticate` 반환  
-2. 클라이언트가 `AUTH_PUBLIC_URL/auth/token`에 Basic Auth로 토큰 요청  
-3. Nuxt가 사용자·ACL을 확인해 RS256 JWT 발급  
+1. push / pull → Registry가 `401` + `WWW-Authenticate` 반환  
+2. 클라이언트가 `AUTH_PUBLIC_URL/auth/token`에 토큰 요청  
+3. Nuxt가 로그인 계정의 ACL을 확인하고, 무인증 요청은 `everyone` ACL의 pull만 확인해 RS256 JWT 발급  
 4. Registry가 `certs/token.crt`로 JWT 검증
 
 Token Auth 키(`certs/token.key`, `certs/token.crt`)는 Compose `certs` 서비스가 없으면 자동 생성합니다. 새로 발급하려면:

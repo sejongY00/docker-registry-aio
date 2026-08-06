@@ -1,6 +1,6 @@
 import { ensureTokenCerts } from './certs'
 import { prisma } from './prisma'
-import { seedAdmin } from '../../prisma/seed'
+import { seedAdmin, seedEveryone } from '../../prisma/seed'
 
 let ready: Promise<void> | null = null
 
@@ -8,6 +8,7 @@ async function bootstrap() {
   ensureTokenCerts()
   await prisma.$connect()
   await seedAdmin(prisma)
+  await seedEveryone(prisma)
 }
 
 export async function ensureBootstrap() {

@@ -9,6 +9,10 @@ export default defineEventHandler(async (event) => {
   await ensureBootstrap()
   const body = bodySchema.parse(await readBody(event))
 
+  if (isEveryoneUsername(body.username)) {
+    throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
+  }
+
   const user = await prisma.user.findUnique({ where: { username: body.username } })
   if (!user || !user.active) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })

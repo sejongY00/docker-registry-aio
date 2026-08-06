@@ -13,7 +13,8 @@ export default defineEventHandler(async (event) => {
   let password: string | undefined
   let refreshTokenIn: string | undefined
 
-  const basic = parseBasicAuth(getHeader(event, 'authorization'))
+  const authorizationHeader = getHeader(event, 'authorization')
+  const basic = parseBasicAuth(authorizationHeader)
   if (basic) {
     username = basic.username
     password = basic.password
@@ -32,6 +33,7 @@ export default defineEventHandler(async (event) => {
 
   let user =
     null as null | Awaited<ReturnType<typeof prisma.user.findUnique<{ include: { acls: true } }>>>
+  let anonymous = false
 
   if (refreshTokenIn) {
     const refreshUser = await verifyRefreshToken(refreshTokenIn)
@@ -42,9 +44,9 @@ export default defineEventHandler(async (event) => {
       where: { username: refreshUser },
       include: { acls: true },
     })
-  } else {
-    if (!username || !password) {
-      throw createError({ statusCode: 401, statusMessage: 'Authentication required' })
+  } else if (username || password || authorizationHeader) {
+    if (!username || !password || isEveryoneUsername(username)) {
+      throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
     }
     user = await prisma.user.findUnique({
       where: { username },
@@ -57,19 +59,31 @@ export default defineEventHandler(async (event) => {
     if (!ok) {
       throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
     }
+  } else {
+    anonymous = true
+    user = await prisma.user.findUnique({
+      where: { username: EVERYONE_USERNAME },
+      include: { acls: true },
+    })
   }
 
   if (!user || !user.active) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
   }
 
-  if (account && account !== user.username) {
+  if (!anonymous && isEveryoneUsername(user.username)) {
+    throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
+  }
+
+  if (!anonymous && account && account !== user.username) {
     throw createError({ statusCode: 401, statusMessage: 'Account mismatch' })
   }
 
-  const access = authorizeScopes(user, scopes)
+  const access = anonymous
+    ? authorizeAnonymousScopes(user, scopes)
+    : authorizeScopes(user, scopes)
   const { token, expiresIn, issuedAt } = await signRegistryToken({
-    subject: user.username,
+    subject: anonymous ? 'anonymous' : user.username,
     access,
   })
 
@@ -80,7 +94,7 @@ export default defineEventHandler(async (event) => {
     issued_at: issuedAt,
   }
 
-  if (offline || refreshTokenIn) {
+  if (!anonymous && (offline || refreshTokenIn)) {
     response.refresh_token = await createRefreshToken(user.username)
   }
 

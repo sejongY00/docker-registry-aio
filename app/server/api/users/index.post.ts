@@ -24,6 +24,10 @@ export default defineEventHandler(async (event) => {
   await ensureBootstrap()
 
   const body = bodySchema.parse(await readBody(event))
+  if (isEveryoneUsername(body.username)) {
+    throw createError({ statusCode: 409, statusMessage: 'Username "everyone" is reserved' })
+  }
+
   const existing = await prisma.user.findUnique({ where: { username: body.username } })
   if (existing) {
     throw createError({ statusCode: 409, statusMessage: 'Username already exists' })

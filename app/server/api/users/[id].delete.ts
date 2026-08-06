@@ -20,6 +20,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Cannot delete bootstrap admin' })
   }
 
+  if (isEveryoneUsername(existing.username)) {
+    throw createError({ statusCode: 400, statusMessage: 'Cannot delete system user "everyone"' })
+  }
+
   await prisma.user.delete({ where: { id } })
   return { ok: true }
 })

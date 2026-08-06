@@ -87,7 +87,15 @@ REGISTRY_PUBLIC_URL={{ registryHost }}</code></pre>
           </CardTitle>
           <CardDescription>사용자별 저장소 접근 범위를 설정합니다.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent class="space-y-4">
+          <Alert>
+            <Globe2 class="size-4" />
+            <AlertTitle>계정 없는 pull</AlertTitle>
+            <AlertDescription>
+              사용자 메뉴의 <code class="font-mono">everyone</code>에 저장소 패턴을 추가하면 해당 이미지를 로그인 없이
+              pull할 수 있습니다. 익명 push/delete는 허용되지 않습니다.
+            </AlertDescription>
+          </Alert>
           <Table>
             <TableBody>
               <TableRow v-for="item in aclPatterns" :key="item.pattern">
@@ -103,7 +111,7 @@ REGISTRY_PUBLIC_URL={{ registryHost }}</code></pre>
 </template>
 
 <script setup lang="ts">
-import { Info } from '@lucide/vue'
+import { Globe2, Info } from '@lucide/vue'
 
 useHead({ title: '가이드' })
 

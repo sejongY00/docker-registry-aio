@@ -29,6 +29,14 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = bodySchema.parse(await readBody(event))
+  const isEveryone = isEveryoneUsername(existing.username)
+
+  if (isEveryone && (body.password || body.role)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Cannot change password or role for system user "everyone"',
+    })
+  }
 
   if (existing.username === (process.env.ADMIN_USERNAME || 'admin') && body.active === false) {
     throw createError({ statusCode: 400, statusMessage: 'Cannot deactivate bootstrap admin' })
@@ -42,13 +50,15 @@ export default defineEventHandler(async (event) => {
     if (body.acls) {
       await tx.acl.deleteMany({ where: { userId: id } })
       await tx.acl.createMany({
-        data: body.acls.map((acl) => ({
-          userId: id,
-          repository: acl.repository,
-          canPull: acl.canPull,
-          canPush: acl.canPush,
-          canDelete: acl.canDelete,
-        })),
+        data: body.acls
+          .filter((acl) => !isEveryone || acl.canPull)
+          .map((acl) => ({
+            userId: id,
+            repository: acl.repository,
+            canPull: isEveryone ? true : acl.canPull,
+            canPush: isEveryone ? false : acl.canPush,
+            canDelete: isEveryone ? false : acl.canDelete,
+          })),
       })
     }
 

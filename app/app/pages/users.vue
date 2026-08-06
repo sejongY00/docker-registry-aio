@@ -33,18 +33,20 @@
             <TableCell class="pl-6">
               <div class="flex items-center gap-3">
                 <span class="flex size-8 items-center justify-center rounded-full bg-muted">
-                  <UserRound class="size-4" />
+                  <Globe2 v-if="isEveryone(user)" class="size-4" />
+                  <UserRound v-else class="size-4" />
                 </span>
                 <span class="font-mono font-medium">{{ user.username }}</span>
               </div>
             </TableCell>
             <TableCell>
-              <Badge :variant="user.role === 'ADMIN' ? 'default' : 'secondary'">{{ user.role }}</Badge>
+              <Badge v-if="isEveryone(user)" variant="outline">PUBLIC</Badge>
+              <Badge v-else :variant="user.role === 'ADMIN' ? 'default' : 'secondary'">{{ user.role }}</Badge>
             </TableCell>
             <TableCell>
               <div class="flex items-center gap-2 text-sm">
                 <span class="size-2 rounded-full" :class="user.active ? 'bg-emerald-500' : 'bg-muted-foreground'" />
-                {{ user.active ? '활성' : '비활성' }}
+                {{ user.active ? (isEveryone(user) ? '익명 pull 활성' : '활성') : '비활성' }}
               </div>
             </TableCell>
             <TableCell>
@@ -72,6 +74,7 @@
                   <Pencil class="size-4" />
                 </Button>
                 <Button
+                  v-if="!isEveryone(user)"
                   variant="ghost"
                   size="icon"
                   class="text-destructive hover:text-destructive"
@@ -91,20 +94,34 @@
       <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <form class="space-y-5" @submit.prevent="save">
           <DialogHeader>
-            <DialogTitle>{{ form.id ? '사용자 편집' : '사용자 추가' }}</DialogTitle>
-            <DialogDescription>이 계정은 관리 UI와 Docker CLI 로그인에 함께 사용됩니다.</DialogDescription>
+            <DialogTitle>{{ form.system ? '공개 이미지 설정' : form.id ? '사용자 편집' : '사용자 추가' }}</DialogTitle>
+            <DialogDescription>
+              {{
+                form.system
+                  ? '선택한 저장소는 계정 없이 docker pull 할 수 있습니다.'
+                  : '이 계정은 관리 UI와 Docker CLI 로그인에 함께 사용됩니다.'
+              }}
+            </DialogDescription>
           </DialogHeader>
+
+          <Alert v-if="form.system">
+            <Globe2 class="size-4" />
+            <AlertTitle>everyone 시스템 사용자</AlertTitle>
+            <AlertDescription>
+              로그인할 수 없으며 pull 권한만 부여됩니다. push와 delete는 항상 차단됩니다.
+            </AlertDescription>
+          </Alert>
 
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="space-y-2">
               <Label for="username">사용자명</Label>
               <Input id="username" v-model="form.username" class="font-mono" :disabled="!!form.id" required />
             </div>
-            <div class="space-y-2">
+            <div v-if="!form.system" class="space-y-2">
               <Label for="password">비밀번호 {{ form.id ? '(비워두면 유지)' : '' }}</Label>
               <Input id="password" v-model="form.password" type="password" :required="!form.id" />
             </div>
-            <div class="space-y-2">
+            <div v-if="!form.system" class="space-y-2">
               <Label>역할</Label>
               <Select v-model="form.role">
                 <SelectTrigger class="w-full">
@@ -119,7 +136,7 @@
             <div class="flex items-end pb-2">
               <label class="flex items-center gap-2 text-sm font-medium">
                 <Checkbox v-model="form.active" />
-                활성 계정
+                {{ form.system ? '익명 pull 활성' : '활성 계정' }}
               </label>
             </div>
           </div>
@@ -130,7 +147,9 @@
             <div class="flex items-center justify-between">
               <div>
                 <Label>저장소 ACL</Label>
-                <p class="mt-1 text-xs text-muted-foreground">저장소 패턴별 허용 작업을 선택하세요.</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                  {{ form.system ? '계정 없이 pull을 허용할 저장소 패턴입니다.' : '저장소 패턴별 허용 작업을 선택하세요.' }}
+                </p>
               </div>
               <Button variant="outline" size="sm" type="button" class="gap-2" @click="addAcl">
                 <Plus class="size-4" />
@@ -151,13 +170,14 @@
                   </Button>
                 </div>
                 <div class="flex flex-wrap gap-5">
-                  <label class="flex items-center gap-2 text-sm">
+                  <label v-if="!form.system" class="flex items-center gap-2 text-sm">
                     <Checkbox v-model="acl.canPull" /> pull
                   </label>
-                  <label class="flex items-center gap-2 text-sm">
+                  <Badge v-else variant="secondary">pull only</Badge>
+                  <label v-if="!form.system" class="flex items-center gap-2 text-sm">
                     <Checkbox v-model="acl.canPush" /> push
                   </label>
-                  <label class="flex items-center gap-2 text-sm">
+                  <label v-if="!form.system" class="flex items-center gap-2 text-sm">
                     <Checkbox v-model="acl.canDelete" /> delete
                   </label>
                 </div>
@@ -181,6 +201,7 @@
 <script setup lang="ts">
 import {
   CircleAlert,
+  Globe2,
   LoaderCircle,
   Pencil,
   Plus,
@@ -191,6 +212,8 @@ import {
 } from '@lucide/vue'
 
 useHead({ title: '사용자' })
+
+const EVERYONE_USERNAME = 'everyone'
 
 type AclForm = {
   repository: string
@@ -212,6 +235,7 @@ const editing = ref(false)
 const saving = ref(false)
 const form = reactive({
   id: '',
+  system: false,
   username: '',
   password: '',
   role: 'USER' as 'ADMIN' | 'USER',
@@ -229,6 +253,7 @@ if (me.data.value?.user?.role !== 'ADMIN') {
 
 function startCreate() {
   form.id = ''
+  form.system = false
   form.username = ''
   form.password = ''
   form.role = 'USER'
@@ -239,6 +264,7 @@ function startCreate() {
 
 function startEdit(user: UserRow) {
   form.id = user.id
+  form.system = isEveryone(user)
   form.username = user.username
   form.password = ''
   form.role = user.role
@@ -256,6 +282,10 @@ function addAcl() {
   form.acls.push({ repository: '', canPull: true, canPush: false, canDelete: false })
 }
 
+function isEveryone(user: Pick<UserRow, 'username'>) {
+  return user.username.toLowerCase() === EVERYONE_USERNAME
+}
+
 async function save() {
   saving.value = true
   error.value = ''
@@ -263,12 +293,22 @@ async function save() {
     if (form.id) {
       await $fetch(`/api/users/${form.id}`, {
         method: 'PUT',
-        body: {
-          ...(form.password ? { password: form.password } : {}),
-          role: form.role,
-          active: form.active,
-          acls: form.role === 'USER' ? form.acls : [],
-        },
+        body: form.system
+          ? {
+              active: form.active,
+              acls: form.acls.map((acl) => ({
+                repository: acl.repository,
+                canPull: true,
+                canPush: false,
+                canDelete: false,
+              })),
+            }
+          : {
+              ...(form.password ? { password: form.password } : {}),
+              role: form.role,
+              active: form.active,
+              acls: form.role === 'USER' ? form.acls : [],
+            },
       })
     } else {
       await $fetch('/api/users', {
