@@ -54,7 +54,8 @@
             <TableHeader>
               <TableRow>
                 <TableHead class="pl-6">태그</TableHead>
-                <TableHead class="w-24 pr-6 text-right">작업</TableHead>
+                <TableHead class="hidden md:table-cell">Pull 명령</TableHead>
+                <TableHead class="w-28 pr-6 text-right">작업</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -65,10 +66,30 @@
                     {{ tag }}
                   </div>
                 </TableCell>
+                <TableCell class="hidden md:table-cell">
+                  <code class="rounded bg-muted px-2 py-1 font-mono text-xs">{{ pullCommand(repo, tag) }}</code>
+                </TableCell>
                 <TableCell class="pr-6 text-right">
-                  <Button variant="ghost" size="icon" class="text-destructive hover:text-destructive" @click="removeTag(repo, tag)">
-                    <Trash2 class="size-4" />
-                  </Button>
+                  <div class="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      :title="copiedKey === copyKey(repo, tag) ? '복사됨' : 'Pull 명령 복사'"
+                      @click.stop="copyPull(repo, tag)"
+                    >
+                      <Check v-if="copiedKey === copyKey(repo, tag)" class="size-4 text-green-500" />
+                      <Copy v-else class="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="text-destructive hover:text-destructive"
+                      title="태그 삭제"
+                      @click.stop="removeTag(repo, tag)"
+                    >
+                      <Trash2 class="size-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -82,8 +103,10 @@
 
 <script setup lang="ts">
 import {
+  Check,
   ChevronRight,
   CircleAlert,
+  Copy,
   Package,
   PackageOpen,
   RefreshCw,
@@ -93,10 +116,12 @@ import {
 
 useHead({ title: '이미지' })
 
+const config = useRuntimeConfig()
 const error = ref('')
 const open = ref<string | null>(null)
 const tags = ref<string[]>([])
 const tagsPending = ref(false)
+const copiedKey = ref('')
 
 const {
   data,
@@ -106,6 +131,30 @@ const {
 } = await useFetch<{ repositories: string[] }>('/api/repositories')
 
 const repositories = computed(() => data.value?.repositories || [])
+
+const registryHost = computed(() => {
+  const raw = String(config.public.registryPublicUrl || '').trim()
+  if (raw) {
+    return raw.replace(/^https?:\/\//i, '').replace(/\/+$/, '')
+  }
+  return `localhost:${config.public.registryPort || '5050'}`
+})
+
+function pullCommand(repo: string, tag: string) {
+  return `docker pull ${registryHost.value}/${repo}:${tag}`
+}
+
+function copyKey(repo: string, tag: string) {
+  return `${repo}:${tag}`
+}
+
+async function copyPull(repo: string, tag: string) {
+  await navigator.clipboard.writeText(pullCommand(repo, tag))
+  copiedKey.value = copyKey(repo, tag)
+  window.setTimeout(() => {
+    if (copiedKey.value === copyKey(repo, tag)) copiedKey.value = ''
+  }, 1500)
+}
 
 watchEffect(() => {
   if (fetchError.value) {
