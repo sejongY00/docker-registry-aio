@@ -46,6 +46,7 @@ docker push localhost:5050/demo/alpine:latest
   - 주의: registry 컨테이너에는 `REGISTRY_*` 환경변수를 직접 넣지 않습니다(공식 이미지가 설정 오버라이드로 해석함). `REGISTRY_PUBLIC_URL`은 app에만 전달됩니다.
 - `SESSION_SECRET` — 관리 UI 세션 서명 키 (운영에서 반드시 변경)
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD` — 최초 admin 시드
+- `GC_HOUR_UTC` — 매일 blob 가비지 컬렉션을 돌릴 시각(UTC, 기본 `20` = 05:00 KST). 빈 값이면 끔
 
 `AUTH_PUBLIC_URL`을 바꾼 뒤에는 registry 컨테이너를 재시작하세요.
 
@@ -96,6 +97,21 @@ ACL 패턴 예:
 - `demo/*` — 한 단계 하위
 - `team/**` — 하위 전체
 - `*` — 모든 저장소
+
+## 이미지 삭제
+
+- **태그 삭제** — 해당 태그만 지웁니다. 같은 digest를 가리키는 다른 태그는 남고, 더 이상 어떤 태그도 가리키지 않을 때만 manifest까지 삭제합니다.
+- **저장소 삭제** — 모든 manifest를 지운 뒤 저장소 메타데이터 디렉터리를 스토리지에서 직접 제거합니다.
+  Registry API에는 저장소 삭제가 없어서, 태그를 모두 지워도 `_catalog`에 빈 저장소가 계속 남기 때문입니다.
+  이를 위해 app 컨테이너에 `registry-data` 볼륨을 함께 마운트합니다(`REGISTRY_STORAGE_PATH`).
+- **디스크 회수** — 삭제는 참조만 끊고 blob은 남습니다. registry 컨테이너가 매일 `GC_HOUR_UTC`에
+  `registry garbage-collect`를 실행해 참조 없는 blob을 정리합니다. 바로 정리하려면:
+
+  ```bash
+  docker compose exec registry registry garbage-collect /etc/docker/registry/config.yml
+  ```
+
+  GC 중 push가 겹치면 업로드 중인 레이어가 지워질 수 있으니 push가 없는 시간에 실행하세요.
 
 ## 로컬 개발 (앱만)
 

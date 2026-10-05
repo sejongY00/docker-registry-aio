@@ -32,6 +32,8 @@ services:
       AUTH_PUBLIC_URL: ${AUTH_PUBLIC_URL:-http://localhost:3080}
       TOKEN_SERVICE: ${REGISTRY_AUTH_SERVICE:-registry}
       TOKEN_ISSUER: ${REGISTRY_AUTH_ISSUER:-registry-aio}
+      # Daily blob garbage collection hour (UTC, 00-23). Empty disables it.
+      GC_HOUR_UTC: ${GC_HOUR_UTC-20}
     volumes:
       - registry-data:/var/lib/registry
       - ./certs:/certs:ro
@@ -51,6 +53,21 @@ services:
           /config/config.yml.template > /etc/docker/registry/config.yml
         echo "Rendered registry config:"
         cat /etc/docker/registry/config.yml
+        # Deleting tags/manifests only drops references; blobs stay on disk until GC runs.
+        if [ -n "$${GC_HOUR_UTC:-}" ]; then
+          (
+            last=""
+            while sleep 600; do
+              today="$$(date -u +%F)"
+              if [ "$$(date -u +%H)" = "$${GC_HOUR_UTC}" ] && [ "$$today" != "$$last" ]; then
+                last="$$today"
+                echo "garbage-collect: start"
+                registry garbage-collect /etc/docker/registry/config.yml 2>&1 | tail -n 5
+                echo "garbage-collect: done"
+              fi
+            done
+          ) &
+        fi
         exec registry serve /etc/docker/registry/config.yml
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5000/v2/ || exit 0"]
@@ -63,6 +80,8 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile
+    labels:
+      - com.centurylinklabs.watchtower.enable=false
     restart: unless-stopped
     depends_on:
       certs:
@@ -91,9 +110,12 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
       TOKEN_KEY_PATH: /certs/token.key
       TOKEN_CERT_PATH: /certs/token.crt
+      # Shared registry storage: lets the UI remove empty repositories from the catalog
+      REGISTRY_STORAGE_PATH: /var/lib/registry
     volumes:
       - app-data:/data
       - ./certs:/certs:ro
+      - registry-data:/var/lib/registry
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 15s

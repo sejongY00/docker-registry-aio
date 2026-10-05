@@ -95,3 +95,39 @@ export async function deleteManifest(name: string, digest: string): Promise<void
     })
   }
 }
+
+/**
+ * Remove a single tag. Other tags pointing at the same manifest are kept; the
+ * manifest itself is deleted only when no tag references it anymore, so blobs
+ * become reclaimable by `registry garbage-collect`.
+ */
+export async function deleteTag(
+  name: string,
+  tag: string,
+): Promise<{ digest: string; manifestDeleted: boolean }> {
+  const digest = await getManifestDigest(name, tag)
+  if (!digest) {
+    throw createError({ statusCode: 404, statusMessage: 'Tag not found' })
+  }
+
+  const res = await registryFetch(
+    `/v2/${encodeURI(name)}/manifests/${encodeURIComponent(tag)}`,
+    { method: 'DELETE' },
+    [{ type: 'repository', name, actions: ['delete', 'pull'] }],
+  )
+  if (!res.ok && res.status !== 404) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: `Registry tag delete failed: ${res.status}`,
+    })
+  }
+
+  const remaining = await listTags(name)
+  const remainingDigests = await Promise.all(remaining.map((t) => getManifestDigest(name, t)))
+  if (remainingDigests.includes(digest)) {
+    return { digest, manifestDeleted: false }
+  }
+
+  await deleteManifest(name, digest)
+  return { digest, manifestDeleted: true }
+}

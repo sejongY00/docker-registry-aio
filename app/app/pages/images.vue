@@ -34,16 +34,29 @@
 
     <div v-else class="space-y-3">
       <Card v-for="repo in repositories" :key="repo" class="overflow-hidden">
-        <button
-          type="button"
-          class="flex w-full items-center gap-3 px-6 py-5 text-left transition-colors hover:bg-muted/50"
-          @click="toggle(repo)"
-        >
-          <ChevronRight class="size-4 text-muted-foreground transition-transform" :class="{ 'rotate-90': open === repo }" />
-          <Package class="size-5" />
-          <span class="flex-1 font-mono text-sm font-medium">{{ repo }}</span>
-          <Badge variant="outline">repository</Badge>
-        </button>
+        <div class="flex items-center transition-colors hover:bg-muted/50">
+          <button
+            type="button"
+            class="flex flex-1 items-center gap-3 py-5 pl-6 text-left"
+            @click="toggle(repo)"
+          >
+            <ChevronRight class="size-4 text-muted-foreground transition-transform" :class="{ 'rotate-90': open === repo }" />
+            <Package class="size-5" />
+            <span class="flex-1 font-mono text-sm font-medium">{{ repo }}</span>
+            <Badge variant="outline">repository</Badge>
+          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="mx-4 text-destructive hover:text-destructive"
+            title="저장소 삭제"
+            :disabled="deleting === repo"
+            @click.stop="removeRepository(repo)"
+          >
+            <LoaderCircle v-if="deleting === repo" class="size-4 animate-spin" />
+            <Trash2 v-else class="size-4" />
+          </Button>
+        </div>
 
         <CardContent v-if="open === repo" class="border-t px-0 pb-0">
           <div v-if="tagsPending" class="space-y-3 p-6">
@@ -94,7 +107,22 @@
               </TableRow>
             </TableBody>
           </Table>
-          <p v-else class="p-6 text-sm text-muted-foreground">태그가 없습니다.</p>
+          <div v-else class="flex flex-wrap items-center justify-between gap-3 p-6">
+            <p class="text-sm text-muted-foreground">
+              태그가 없는 저장소입니다. 레지스트리는 빈 저장소를 자동으로 지우지 않으므로 직접 삭제하세요.
+            </p>
+            <Button
+              variant="destructive"
+              size="sm"
+              class="gap-2"
+              :disabled="deleting === repo"
+              @click="removeRepository(repo)"
+            >
+              <LoaderCircle v-if="deleting === repo" class="size-4 animate-spin" />
+              <Trash2 v-else class="size-4" />
+              저장소 삭제
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -107,6 +135,7 @@ import {
   ChevronRight,
   CircleAlert,
   Copy,
+  LoaderCircle,
   Package,
   PackageOpen,
   RefreshCw,
@@ -122,6 +151,7 @@ const open = ref<string | null>(null)
 const tags = ref<string[]>([])
 const tagsPending = ref(false)
 const copiedKey = ref('')
+const deleting = ref<string | null>(null)
 
 const {
   data,
@@ -169,17 +199,12 @@ async function refreshAll() {
   await refresh()
 }
 
-async function toggle(repo: string) {
-  if (open.value === repo) {
-    open.value = null
-    return
-  }
-  open.value = repo
+async function loadTags(repo: string) {
   tagsPending.value = true
   tags.value = []
   try {
     const res = await $fetch<{ tags: string[] }>('/api/repo-tags', { query: { name: repo } })
-    tags.value = res.tags
+    if (open.value === repo) tags.value = res.tags
   } catch (e: any) {
     error.value = e?.data?.statusMessage || '태그를 불러오지 못했습니다'
   } finally {
@@ -187,13 +212,41 @@ async function toggle(repo: string) {
   }
 }
 
+async function toggle(repo: string) {
+  if (open.value === repo) {
+    open.value = null
+    return
+  }
+  open.value = repo
+  await loadTags(repo)
+}
+
 async function removeTag(name: string, tag: string) {
-  if (!confirm(`${name}:${tag} 을(를) 삭제할까요?`)) return
+  if (!confirm(`${name}:${tag} 태그를 삭제할까요?\n같은 이미지를 가리키는 다른 태그는 유지됩니다.`)) return
+  error.value = ''
   try {
     await $fetch('/api/repo-tags', { method: 'DELETE', body: { name, tag } })
-    tags.value = tags.value.filter((t) => t !== tag)
+    await loadTags(name)
   } catch (e: any) {
     error.value = e?.data?.statusMessage || '삭제에 실패했습니다'
+  }
+}
+
+async function removeRepository(name: string) {
+  if (!confirm(`저장소 ${name} 을(를) 모든 태그와 함께 삭제할까요?\n되돌릴 수 없습니다.`)) return
+  error.value = ''
+  deleting.value = name
+  try {
+    await $fetch('/api/repositories', { method: 'DELETE', body: { name } })
+    if (open.value === name) {
+      open.value = null
+      tags.value = []
+    }
+    await refresh()
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage || '저장소 삭제에 실패했습니다'
+  } finally {
+    deleting.value = null
   }
 }
 </script>
