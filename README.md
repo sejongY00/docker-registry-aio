@@ -158,3 +158,20 @@ config/registry/config.yml.template
 certs/                 # compose certs 서비스가 자동 생성 (gitignore)
 app/                   # Nuxt + Prisma
 ```
+
+## Jenkins 배포
+
+`Jenkinsfile`은 Gitea 멀티브랜치 파이프라인용입니다.
+
+1. **Validate** — `docker compose config -q`, 배포 스크립트 문법 검사
+2. **Build** — `app` 이미지를 빌드해 확인만 하고 지움 (모든 브랜치·PR)
+3. **Deploy** — `main`만. SSH(`SEJONG-NAS`)로 배포 디렉터리의 체크아웃을 빌드한 커밋까지 fast-forward한 뒤 `scripts/deploy.sh` 실행
+
+`scripts/deploy.sh`는 `app`을 다시 빌드하고 `docker compose up -d` 후 `app`이 healthy가 될 때까지 기다립니다.
+수동 배포도 같은 스크립트를 씁니다.
+
+```bash
+git pull --ff-only && sh scripts/deploy.sh
+```
+
+배포 디렉터리에 커밋되지 않은 수정이 있어 fast-forward가 안 되면 배포는 실패하고 아무것도 바뀌지 않습니다.
