@@ -162,7 +162,7 @@
                   <Input
                     v-model="acl.repository"
                     class="font-mono"
-                    placeholder="예: demo/* 또는 library/nginx"
+                    placeholder="예: demo/*, test-*, library/nginx"
                     required
                   />
                   <Button variant="ghost" size="icon" type="button" @click="form.acls.splice(idx, 1)">

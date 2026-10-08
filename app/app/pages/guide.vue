@@ -139,6 +139,8 @@ const aclPatterns = [
   { pattern: 'demo/app', description: '정확한 저장소' },
   { pattern: 'demo/*', description: 'demo 아래 한 단계' },
   { pattern: 'team/**', description: 'team 아래 전체' },
+  { pattern: 'test*', description: 'test로 시작하는 최상위 저장소 (test, test-app 등)' },
+  { pattern: 'team/app-*', description: 'team 아래 app-로 시작하는 저장소' },
   { pattern: '*', description: '모든 저장소' },
 ]
 </script>

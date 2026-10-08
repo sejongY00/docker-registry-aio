@@ -1,14 +1,15 @@
 /**
  * Glob-like repository matching:
  * - exact match
- * - `*` matches a single path segment (no `/`)
- * - `**` matches any remaining path
+ * - `*` matches within a single path segment (no `/`), so `test*`,
+ *   `test-*` and `team/app-*` work as prefix/suffix wildcards
+ * - `**` as a whole segment matches any remaining path
  */
 export function matchRepository(pattern: string, repository: string): boolean {
   if (pattern === '*' || pattern === '**') return true
   if (pattern === repository) return true
 
-  const escapeRegex = (s: string) => s.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const regexSource = pattern
     .split('/')
     .map((segment) => {
