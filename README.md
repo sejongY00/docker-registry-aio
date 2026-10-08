@@ -164,7 +164,7 @@ app/                   # Nuxt + Prisma
 `Jenkinsfile`은 Gitea 멀티브랜치 파이프라인용입니다.
 
 1. **Validate** — `docker compose config -q`, 배포 스크립트 문법 검사
-2. **Build** — `app` 이미지를 빌드해 확인만 하고 지움 (모든 브랜치·PR)
+2. **Build** — `main` 외 브랜치·PR에서 `app` 이미지를 빌드해 확인만 하고 지움 (`main`은 Deploy가 빌드)
 3. **Deploy** — `main`만. SSH(`SEJONG-NAS`)로 배포 디렉터리의 체크아웃을 빌드한 커밋까지 fast-forward한 뒤 `scripts/deploy.sh` 실행
 
 `scripts/deploy.sh`는 `app`을 다시 빌드하고 `docker compose up -d` 후 `app`이 healthy가 될 때까지 기다립니다.

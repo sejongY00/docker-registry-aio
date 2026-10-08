@@ -10,7 +10,8 @@ HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
 echo "deploy: $(git log -1 --format='%h %s' 2>/dev/null || echo unknown)"
 
 docker compose config -q
-docker compose build app
+# Plain progress: the Jenkins SSH session has a pty, and the tty view floods the log.
+BUILDKIT_PROGRESS=plain docker compose build app
 docker compose up -d
 
 # registry's healthcheck always passes, so the app health is what tells us the deploy worked.

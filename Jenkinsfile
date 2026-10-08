@@ -1,3 +1,8 @@
+def isMain() {
+  def branch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: ''
+  return !env.CHANGE_ID && branch in ['main', 'origin/main', 'refs/heads/main']
+}
+
 pipeline {
   agent any
 
@@ -25,31 +30,24 @@ pipeline {
     }
 
     stage('Build') {
+      // main is built by Deploy itself; building here too would double the time.
+      when { not { expression { isMain() } } }
       steps {
-        // Same Dockerfile the NAS builds; the agent shares the host daemon,
-        // so this also warms the build cache for the Deploy stage.
+        // Image check only. The agent uses the legacy builder, which leaves untagged images
+        // for the deps/build stages, so tag every stage and remove them all afterwards.
         sh '''
           set -eu
-          tag="registry-aio-app-ci:$(printf '%s' "$BUILD_TAG" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-128)"
-          trap 'docker image rm "$tag" >/dev/null 2>&1 || true' EXIT
-          docker build -t "$tag" app
+          tag="registry-aio-app-ci:$(printf '%s' "$BUILD_TAG" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-120)"
+          trap 'docker image rm "$tag-deps" "$tag-build" "$tag" >/dev/null 2>&1 || true' EXIT
+          docker build -q --target deps -t "$tag-deps" app
+          docker build -q --target build -t "$tag-build" app
+          docker build -q -t "$tag" app
         '''
       }
     }
 
     stage('Deploy') {
-      when {
-        allOf {
-          not { changeRequest() }
-          anyOf {
-            branch 'main'
-            expression {
-              def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
-              branch == 'main' || branch == 'origin/main' || branch == 'refs/heads/main'
-            }
-          }
-        }
-      }
+      when { expression { isMain() } }
       steps {
         // Keep the existing flow: the NAS checkout is the deployment.
         // Fast-forward it to the built commit, then rebuild app and `compose up -d` there.
